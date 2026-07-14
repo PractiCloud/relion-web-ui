@@ -1,0 +1,15 @@
+{
+  "cluster_mode": "generic",
+  "deployment_mode": "ood",
+  "execution_mode": "slurm",
+  "environment": "production",
+  "host": "127.0.0.1",
+  "port": 5000,
+  "debug": false,
+  "relion_bin_path": "/opt/relion/build/bin",
+  "relion_container": "/path/to/relion.sif",
+  "singularity_bin": "/usr/bin/singularity",
+  "container_bind": "/home:/home,/scratch:/scratch",
+  "slurm_partition": "compute",
+  "project_base_dir": "${HOME}/relion_projects"
+}

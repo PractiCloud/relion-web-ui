@@ -1,0 +1,36 @@
+[Unit]
+Description=RELION Web UI 5 backend (headless)
+Documentation=https://github.com/Narasimhany/relion-web-ui
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=relion-web-ui
+Group=relion-web-ui
+WorkingDirectory=__BACKEND_DIR__
+EnvironmentFile=__ENV_FILE__
+
+# Frontend polls HTTP, not SocketIO. Stub it out.
+Environment=RELION_WSGI=1
+Environment=RELION_HOST=127.0.0.1
+Environment=RELION_BACKEND_PORT=5000
+
+# gthread, not eventlet (gunicorn 26 dropped that extra).
+ExecStart=__CONDA_ENV__/bin/gunicorn \
+  --worker-class gthread \
+  --workers 1 \
+  --threads 4 \
+  --timeout 300 \
+  --bind 127.0.0.1:5000 \
+  --access-logfile - \
+  --error-logfile - \
+  app:app
+
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target

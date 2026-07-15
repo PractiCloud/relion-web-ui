@@ -8,6 +8,7 @@ RELION Web UI is a browser interface that submits and monitors compute jobs. The
 2. **Command injection through job parameters.** RELION accepts many string parameters that ultimately become shell arguments. The backend uses `shlex.quote()` at the boundary; do not disable that.
 3. **Path traversal on file-serving endpoints.** The backend validates paths against a base directory before serving. Do not weaken this.
 4. **Cross-site scripting.** The React frontend uses standard React escaping; do not use `dangerouslySetInnerHTML` on user-controlled content.
+5. **Cross-site request forgery.** State-changing API calls (job submission, deletion) trust whatever identity the reverse proxy forwards. A logged-in user visiting a malicious page could have jobs submitted on their behalf. If your reverse proxy issues session cookies, set `SameSite=Strict`. For OOD, this is handled at the OOD layer.
 
 ## What each variant protects by default
 
@@ -26,7 +27,7 @@ The OOD variant inherits your Open OnDemand deployment's SSO. If OOD is behind S
 ## What is not in place
 
 - No account lockout after failed logins.
-- No rate limiting on the API endpoints (add nginx `limit_req_zone` if you expose the service on the public internet).
+- No rate limiting on the API endpoints (add nginx `limit_req_zone` if you expose the service on the public internet). Job-submission flooding by an authenticated user is bounded by your Slurm QoS / partition limits, not the app.
 - No multi-tenant isolation. All authenticated users share the same OS-side identity for `sbatch` submission. Fine for a single team; not multi-tenant SaaS.
 - No default TLS certificates. You provide the cert.
 

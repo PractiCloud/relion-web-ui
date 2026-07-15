@@ -1,0 +1,8 @@
+#!/bin/bash
+# OOD's Passenger wrapper (/opt/ood/nginx_stage/bin/python) prefers ${PWD}/bin/python
+# before falling back to bare 'python' in PATH, which does not exist on Ubuntu 22.04
+# (only python3 exists). Without this shim, Passenger fails to spawn with
+# "python: not found."
+#
+# install_ood.sh rewrites __BACKEND_DIR__ below to the actual backend install path.
+exec __BACKEND_DIR__/.venv/bin/python3 "$@"

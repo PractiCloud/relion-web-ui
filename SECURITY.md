@@ -2,13 +2,23 @@
 
 ## Threat model
 
-RELION Web UI is a browser interface that submits and monitors compute jobs. The realistic threats are:
+RELION Web UI is a browser interface that submits and monitors compute jobs. Threats and their mitigation status:
 
-1. **Unauthorized access to a running instance.** Anyone who reaches the web UI can submit RELION jobs on your Slurm cluster and read data on your shared filesystem. Protect access with the auth mechanism appropriate to your deployment (see below).
-2. **Command injection through job parameters.** RELION accepts many string parameters that ultimately become shell arguments. The backend uses `shlex.quote()` at the boundary; do not disable that.
-3. **Path traversal on file-serving endpoints.** The backend validates paths against a base directory before serving. Do not weaken this.
-4. **Cross-site scripting.** The React frontend uses standard React escaping; do not use `dangerouslySetInnerHTML` on user-controlled content.
-5. **Cross-site request forgery.** State-changing API calls (job submission, deletion) trust whatever identity the reverse proxy forwards. A logged-in user visiting a malicious page could have jobs submitted on their behalf. If your reverse proxy issues session cookies, set `SameSite=Strict`. For OOD, this is handled at the OOD layer.
+| # | Threat | Status | Where handled |
+|---|---|---|---|
+| 1 | Unauthorized access to a running instance | **Your responsibility** | Reverse proxy / OOD SSO / nginx basic-auth |
+| 2 | Command injection through job parameters | **Mitigated in code** | `shlex.quote()` at the shell boundary |
+| 3 | Path traversal on file-serving endpoints | **Mitigated in code** | Base-directory canonicalisation before `send_file()` |
+| 4 | Cross-site scripting | **Mitigated in code** | React default escaping + CSP header |
+| 5 | Cross-site request forgery | **Mitigated in code** | `X-Requested-With` header required on POST/PUT/PATCH/DELETE |
+
+Notes for maintainers and forkers:
+
+- **(1) Unauthorized access** is by design a deployment concern. The backend trusts whatever identity the reverse proxy forwards. Each deployment shape has a default auth story (see table below); if you bypass the proxy, add auth first.
+- **(2) Command injection** — the `shlex.quote()` boundary in `job_manager.py` is the only thing between user-supplied RELION parameters and a Slurm sbatch script. Do not disable it, and do not build shell commands with f-strings elsewhere.
+- **(3) Path traversal** — every file-serving endpoint validates that the resolved absolute path is under the project directory. Preserve this pattern in new endpoints.
+- **(4) XSS** — a Content-Security-Policy header is set by `_security_headers()` in `app.py`. Do not use `dangerouslySetInnerHTML` on user-controlled content.
+- **(5) CSRF** — the `_require_xhr_header_on_writes()` before-request hook in `app.py` rejects state-changing requests without `X-Requested-With: XMLHttpRequest`. The frontend adds this header globally in `index.tsx`. This blocks form-based CSRF from another origin because browsers do not send custom headers on cross-origin form posts.
 
 ## What each variant protects by default
 

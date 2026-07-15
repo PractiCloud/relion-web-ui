@@ -130,6 +130,34 @@ app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('RELION_MAX_UPLOAD_BYTES',
 # RELION Web UI's own deploy restricts this to its Azure hostname.
 _cors_origins = config.cors_origins if config.cors_origins else "*"
 CORS(app, resources={r"/api/*": {"origins": _cors_origins}})
+
+
+@app.before_request
+def _require_xhr_header_on_writes():
+    # CSRF defense: browsers do not send custom headers on cross-origin form
+    # submissions without a CORS preflight, so requiring X-Requested-With on
+    # state-changing methods blocks form-based CSRF while remaining transparent
+    # to fetch()/axios (the frontend adds the header globally).
+    if request.method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        if request.headers.get('X-Requested-With') != 'XMLHttpRequest':
+            return jsonify({'error': 'missing X-Requested-With header'}), 403
+
+
+@app.after_request
+def _security_headers(resp):
+    resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    resp.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+    resp.headers.setdefault('Referrer-Policy', 'same-origin')
+    resp.headers.setdefault(
+        'Content-Security-Policy',
+        "default-src 'self'; "
+        "img-src 'self' data: blob:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; "
+        "connect-src 'self'; "
+        "frame-ancestors 'self'"
+    )
+    return resp
 if os.environ.get('RELION_WSGI'):
     class _NoopSocketIO:
         """Lightweight SocketIO stub for WSGI environments."""
